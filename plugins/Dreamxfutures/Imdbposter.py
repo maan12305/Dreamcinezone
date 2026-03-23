@@ -5,11 +5,8 @@ import logging
 from io import BytesIO
 from PIL import Image
 from info import DREAMXBOTZ_IMAGE_FETCH, TMDB_API_KEY, MAX_LIST_ELM
-from utils import listx_to_str, imdb
-
 
 logger = logging.getLogger(__name__)
-ia = Cinemagoer()
 LONG_IMDB_DESCRIPTION = False
 
 Image.MAX_IMAGE_PIXELS = None
@@ -69,6 +66,7 @@ def list_to_str(lst):
 
 async def get_movie_details(query, bulk=False, id=False, file=None):
     if not id:
+        from utils import listx_to_str, imdb
         query = (query.strip()).lower()
         title = query
         year_val = None
@@ -161,7 +159,8 @@ async def get_movie_details(query, bulk=False, id=False, file=None):
         'rating': str(movie.rating),
         "url": movie.url or f"https://www.imdb.com/title/{imdb_id}"
     }
-    
+
+"""
 async def old_get_movie_details(query, id=False, file=None):
     try:
         if not id:
@@ -248,6 +247,7 @@ async def old_get_movie_details(query, id=False, file=None):
     except Exception as e:
         logger.exception(f"An error occurred in get_movie_details: {e}")
         return None
+"""
 
 async def get_movie_detailsx(query, id=False, file=None):
     base_url = "https://bharath-boy-api.vercel.app/api/movie-posters"
