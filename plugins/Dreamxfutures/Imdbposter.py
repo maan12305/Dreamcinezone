@@ -1,4 +1,5 @@
 import re
+import asyncio
 import aiohttp
 import warnings
 import logging
