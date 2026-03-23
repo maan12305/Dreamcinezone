@@ -4,8 +4,8 @@ import warnings
 import logging
 from io import BytesIO
 from PIL import Image
-from info import DREAMXBOTZ_IMAGE_FETCH, TMDB_API_KEY
-from imdb import Cinemagoer
+from info import DREAMXBOTZ_IMAGE_FETCH, TMDB_API_KEY, MAX_LIST_ELM
+from utils import listx_to_str, imdb
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,102 @@ def list_to_str(lst):
         return ", ".join(map(str, lst))
     return ""
 
-async def get_movie_details(query, id=False, file=None):
+async def get_movie_details(query, bulk=False, id=False, file=None):
+    if not id:
+        query = (query.strip()).lower()
+        title = query
+        year_val = None
+        
+        year_list = re.findall(r'[1-2]\d{3}$', query, re.IGNORECASE)
+        if year_list:
+            year_val = year_list[0]
+            title = (query.replace(year_val, "")).strip()
+        elif file is not None:
+            year_list = re.findall(r'[1-2]\d{3}', file, re.IGNORECASE)
+            if year_list:
+                year_val = year_list[0]
+        
+        search_result = await asyncio.to_thread(imdb.search_movie, title.lower())
+        if not search_result or not search_result.titles:
+            return None
+        
+        movie_list = search_result.titles[:MAX_LIST_ELM]
+        
+        if year_val:
+            filtered = [m for m in movie_list if m.year and str(m.year) == str(year_val)]
+            if not filtered:
+                filtered = movie_list
+        else:
+            filtered = movie_list
+            
+        kind_filter = ['movie', 'tv series', 'tvSeries', 'tvMiniSeries', 'tvMovie']
+        filtered_kind = [m for m in filtered if m.kind and m.kind in kind_filter]
+        
+        if not filtered_kind:
+            filtered_kind = filtered
+        
+        if bulk:
+            return filtered_kind[:MAX_LIST_ELM]
+        if not filtered_kind:
+            return None   
+        movie_brief = filtered_kind[0]
+        movieid_str = movie_brief.imdb_id 
+    else:
+        movieid_str = query
+
+    movie = await asyncio.to_thread(imdb.get_movie, movieid_str)
+    if not movie:
+        return None
+
+    if movie.release_date:
+        date = movie.release_date
+    elif movie.year:
+        date = str(movie.year)
+    else:
+        date = "N/A"
+        
+    plot = movie.plot[0] if isinstance(movie.plot, list) else movie.plot or ""
+    if len(plot) > 800:
+        plot = plot[:800] + "..."
+    imdb_id = movie.imdb_id
+    if not imdb_id.startswith("tt"):
+        imdb_id = f"tt{imdb_id}"
+    return {
+        'title': movie.title,
+        'votes': movie.votes,
+        "aka": listx_to_str(movie.title_akas),
+        "seasons": (
+            len(movie.info_series.display_seasons)
+            if getattr(movie, "info_series", None)
+            and getattr(movie.info_series, "display_seasons", None)
+            else "N/A"
+        ),
+        "box_office": movie.worldwide_gross,
+        'localized_title': movie.title_localized,
+        'kind': movie.kind,
+        "imdb_id": imdb_id,
+        "cast": listx_to_str(movie.stars),
+        "runtime": listx_to_str(movie.duration),
+        "countries": listx_to_str(movie.countries),
+        "certificates": listx_to_str(movie.certificates),
+        "languages": listx_to_str(movie.languages),
+        "director": listx_to_str(movie.directors),
+        "writer": listx_to_str([p.name for p in movie.writers]),
+        "producer": listx_to_str([p.name for p in movie.producers]),
+        "composer": listx_to_str([p.name for p in movie.composers]),
+        "cinematographer": listx_to_str([p.name for p in movie.cinematographers]),
+        "music_team": listx_to_str([p.name for p in movie.music_team]),
+        "distributors": listx_to_str([c.name for c in movie.distributors]),        
+        'release_date': date,
+        'year': movie.year,
+        'genres': listx_to_str(movie.genres),
+        'poster': movie.cover_url,
+        'plot': plot,
+        'rating': str(movie.rating),
+        "url": movie.url or f"https://www.imdb.com/title/{imdb_id}"
+    }
+    
+async def old_get_movie_details(query, id=False, file=None):
     try:
         if not id:
             query = query.strip().lower()
