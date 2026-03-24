@@ -15,13 +15,13 @@ warnings.simplefilter("ignore", Image.DecompressionBombWarning)
 
 _session: aiohttp.ClientSession | None = None
 
-
 async def get_session():
     global _session
     if _session is None or _session.closed:
-        _session = aiohttp.ClientSession()
+        _session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10)
+        )
     return _session
-
 
 async def fetch_image(url, size=(860, 1200)):
     if not DREAMXBOTZ_IMAGE_FETCH:
@@ -254,18 +254,18 @@ async def get_movie_detailsx(query, id=False, file=None):
     base_url = "https://bharath-boy-api.vercel.app/api/movie-posters"
     q = str(query).strip()
     try:
-        async with aiohttp.ClientSession() as session:
-            params = {"query": q, "api_key": TMDB_API_KEY}
-            async with session.get(base_url, params=params) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(f"API request failed [{resp.status}] for query={q}\n {text}")
-                    return await resp.json()
-                
-                data = await resp.json()
+        session = await get_session()
+        params = {"query": q, "api_key": TMDB_API_KEY}
+
+        async with session.get(base_url, params=params) as resp:
+            if resp.status != 200:
+                logger.error(f"API failed [{resp.status}] → switching to IMDb fallback")
+                return await get_movie_details(q)
+
+            data = await resp.json()
     except Exception as e:
-        logger.error(f"An error occurred in get_movie_detailsx: {e}")
-        return None
+        logger.error(f"API down → fallback IMDb: {e}")
+        return await get_movie_details(q)
 
     # Normalize fields
     details = {}
