@@ -251,7 +251,8 @@ async def old_get_movie_details(query, id=False, file=None):
 """
 
 async def get_movie_detailsx(query, id=False, file=None):
-    base_url = "https://bharath-boy-api.vercel.app/api/movie-posters"
+    # base_url = "https://bharath-boy-api.vercel.app/api/movie-posters" Monthly limit reached
+    base_url = "https://tmdb.blazeposters.workers.dev/api/movie-posters"
     q = str(query).strip()
     try:
         session = await get_session()
