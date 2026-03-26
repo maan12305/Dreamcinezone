@@ -113,7 +113,7 @@ async def _tmdb_get(path, params=None, api_key=None):
         }
 
     session = await get_session()
-    async with session.get(url, params=_params, headers=_headers) as resp:
+    async with session.get(url, params=_params, headers=_headers, ssl=False) as resp:
         resp.raise_for_status()
         return await resp.json()
 
